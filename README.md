@@ -2,16 +2,15 @@
 
 > 面向城市规划师与建筑师的方案阶段快速估算工具，根据城市纬度、日照标准与遮挡建筑高度，估算住宅建筑所需的最小日照间距。
 
-[![Play now](https://img.shields.io/badge/▶-在线试用-2563eb?style=for-the-badge)](#在线使用) ![Static](https://img.shields.io/badge/纯前端-HTML%2FJS-94a3b8) ![Standard](https://img.shields.io/badge/参考-GB%2050180--2018-475569)
+### 🔗 [▶ 立即打开使用](https://mxy1129-oss.github.io/sunlight-spacing-calculator/)
+
+[![Live Demo](https://img.shields.io/badge/▶-在线试用-2563eb?style=for-the-badge)](https://mxy1129-oss.github.io/sunlight-spacing-calculator/) ![Static](https://img.shields.io/badge/纯前端-HTML%2FJS-94a3b8) ![Standard](https://img.shields.io/badge/参考-GB%2050180--2018-475569) ![License](https://img.shields.io/badge/license-MIT-green)
 
 ## 在线使用
 
-把仓库部署到 GitHub Pages 后访问：
-```
-https://<your-username>.github.io/sunlight-spacing-calculator/
-```
+直接访问 → **https://mxy1129-oss.github.io/sunlight-spacing-calculator/**
 
-也可直接克隆后用浏览器打开 `index.html`，无需任何构建。
+无需安装、无需登录、无需后端。也可直接克隆后用浏览器打开 `index.html`，无需任何构建。
 
 ## 功能
 
