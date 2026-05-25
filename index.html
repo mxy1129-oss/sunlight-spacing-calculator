@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>日照间距计算器 · Sunlight Spacing Calculator</title>
+<style>
+  :root{
+    --bg:#f6f7f9;
+    --card:#ffffff;
+    --ink:#1a1f2c;
+    --muted:#6b7280;
+    --line:#e5e7eb;
+    --accent:#2563eb;
+    --accent-soft:#dbeafe;
+    --ok:#16a34a;
+    --warn:#d97706;
+    --bad:#dc2626;
+    --sun:#f59e0b;
+    --bldg:#94a3b8;
+    --bldg-front:#475569;
+    --shadow:#cbd5e1;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;
+    background:var(--bg);color:var(--ink);line-height:1.55;
+  }
+  header{
+    padding:28px 32px 8px;max-width:1200px;margin:0 auto;
+  }
+  header h1{margin:0 0 4px;font-size:24px;letter-spacing:0.5px}
+  header p{margin:0;color:var(--muted);font-size:14px}
+  main{
+    max-width:1200px;margin:0 auto;padding:20px 32px 60px;
+    display:grid;grid-template-columns:380px 1fr;gap:24px;
+  }
+  @media (max-width:900px){main{grid-template-columns:1fr;padding:16px}}
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:12px;
+    padding:20px;
+  }
+  .card h2{margin:0 0 14px;font-size:15px;color:var(--muted);font-weight:600;letter-spacing:0.4px;text-transform:uppercase}
+  .row{margin-bottom:14px}
+  .row label{display:block;font-size:13px;color:var(--muted);margin-bottom:4px}
+  .row input,.row select{
+    width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;
+    font-size:14px;background:#fff;color:var(--ink);font-family:inherit;
+  }
+  .row input:focus,.row select:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .pill-group{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+  .pill{
+    padding:6px 10px;border:1px solid var(--line);border-radius:999px;
+    font-size:12px;cursor:pointer;background:#fff;user-select:none;
+  }
+  .pill.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+  .helper{font-size:12px;color:var(--muted);margin-top:4px}
+
+  .results{display:flex;flex-direction:column;gap:24px}
+  .metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}
+  @media (max-width:700px){.metrics{grid-template-columns:repeat(2,1fr)}}
+  .metric{
+    background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px;
+  }
+  .metric .label{font-size:12px;color:var(--muted)}
+  .metric .value{font-size:22px;font-weight:600;margin-top:4px}
+  .metric .unit{font-size:13px;color:var(--muted);margin-left:2px}
+  .metric.primary{background:linear-gradient(135deg,#eff6ff,#dbeafe);border-color:#bfdbfe}
+  .metric.primary .value{color:var(--accent)}
+
+  .status{
+    display:inline-flex;align-items:center;gap:6px;
+    padding:4px 10px;border-radius:999px;font-size:12px;font-weight:500;
+  }
+  .status.ok{background:#dcfce7;color:#15803d}
+  .status.warn{background:#fef3c7;color:#b45309}
+  .status.bad{background:#fee2e2;color:#b91c1c}
+
+  .viz{position:relative;background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px;overflow:hidden}
+  .viz svg{width:100%;height:auto;display:block}
+
+  table.std{width:100%;border-collapse:collapse;font-size:13px}
+  table.std th,table.std td{padding:8px 10px;border-bottom:1px solid var(--line);text-align:left}
+  table.std th{color:var(--muted);font-weight:500;background:#fafafa}
+  table.std .ok{color:var(--ok)}
+  table.std .bad{color:var(--bad)}
+
+  details{margin-top:18px;background:#fff;border:1px solid var(--line);border-radius:10px;padding:14px 18px}
+  details summary{cursor:pointer;font-weight:500;font-size:14px;color:var(--muted)}
+  details p{font-size:13px;color:var(--ink);line-height:1.7}
+  details code{background:#f3f4f6;padding:2px 6px;border-radius:4px;font-size:12px}
+
+  footer{max-width:1200px;margin:0 auto;padding:0 32px 40px;color:var(--muted);font-size:12px}
+  footer a{color:var(--accent);text-decoration:none}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>日照间距计算器</h1>
+  <p>根据城市纬度、日照标准与遮挡建筑高度，估算住宅建筑所需的最小日照间距。参考 GB 50180-2018《城市居住区规划设计标准》。</p>
+</header>
+
+<main>
+
+  <!-- ====== 输入区 ====== -->
+  <section class="card" id="inputs">
+    <h2>计算参数</h2>
+
+    <div class="row">
+      <label for="city">城市预设</label>
+      <select id="city"></select>
+      <div class="helper">选「自定义」后可手动输入纬度</div>
+    </div>
+
+    <div class="row">
+      <label for="latitude">地理纬度（°N）</label>
+      <input type="number" id="latitude" step="0.1" min="0" max="60" value="39.9">
+    </div>
+
+    <div class="grid2">
+      <div class="row">
+        <label for="height">遮挡建筑高度 H（m）</label>
+        <input type="number" id="height" step="0.1" min="3" value="54">
+      </div>
+      <div class="row">
+        <label for="windowH">窗台高度 H₁（m）</label>
+        <input type="number" id="windowH" step="0.1" min="0" value="0.9">
+      </div>
+    </div>
+
+    <div class="row">
+      <label>日照标准</label>
+      <div class="pill-group" id="standardPills">
+        <div class="pill" data-std="dahan2">大寒日 ≥ 2h</div>
+        <div class="pill" data-std="dahan3">大寒日 ≥ 3h</div>
+        <div class="pill" data-std="dongzhi1">冬至日 ≥ 1h</div>
+      </div>
+      <div class="helper" id="stdHint">气候区 I/II/VI/VII 取大寒 2h；III/IV/V 取大寒 3h 或冬至 1h（旧城改建可降至 1h）。</div>
+    </div>
+
+    <div class="row">
+      <label for="orient">建筑朝向（正南=0°，南偏西为正，南偏东为负）</label>
+      <input type="number" id="orient" step="1" min="-45" max="45" value="0">
+      <div class="helper">用于估算非正南向建筑的等效间距系数</div>
+    </div>
+
+    <div class="row">
+      <label>计算时刻</label>
+      <div class="pill-group" id="momentPills">
+        <div class="pill on" data-moment="boundary">日照时段边界（最不利）</div>
+        <div class="pill" data-moment="noon">太阳正午（最有利）</div>
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ====== 结果区 ====== -->
+  <section class="results">
+
+    <div class="metrics">
+      <div class="metric primary">
+        <div class="label">所需最小间距 L</div>
+        <div class="value"><span id="rL">--</span><span class="unit">m</span></div>
+      </div>
+      <div class="metric">
+        <div class="label">间距系数 L/H</div>
+        <div class="value" id="rK">--</div>
+      </div>
+      <div class="metric">
+        <div class="label">太阳高度角 h</div>
+        <div class="value"><span id="rH">--</span><span class="unit">°</span></div>
+      </div>
+      <div class="metric">
+        <div class="label">太阳方位角 A</div>
+        <div class="value"><span id="rA">--</span><span class="unit">°</span></div>
+      </div>
+    </div>
+
+    <div class="viz">
+      <h2 style="margin:0 0 8px;font-size:13px;color:var(--muted);font-weight:600;letter-spacing:.4px;text-transform:uppercase">侧视示意图</h2>
+      <svg id="viz" viewBox="0 0 800 360" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+
+    <div class="card">
+      <h2>规范参考对照</h2>
+      <table class="std">
+        <thead>
+          <tr><th>气候区</th><th>常用城市</th><th>规范建议 L/H</th><th>当前结果</th></tr>
+        </thead>
+        <tbody id="stdTable"></tbody>
+      </table>
+    </div>
+
+    <details>
+      <summary>计算说明与公式</summary>
+      <p>
+        <strong>太阳高度角</strong>：<code>sin(h) = sin(φ)sin(δ) + cos(φ)cos(δ)cos(ω)</code><br>
+        <strong>太阳方位角</strong>（自正南起算，西为正）：<code>sin(A) = cos(δ)sin(ω)/cos(h)</code><br>
+        <strong>日照间距</strong>：<code>L = (H − H₁) × cos(A − α) / tan(h)</code><br>
+        其中：φ=地理纬度，δ=太阳赤纬（冬至 −23.45°，大寒 ≈ −20.0°），ω=时角（15°/小时，正午为 0），α=建筑朝向偏角。
+      </p>
+      <p style="margin-top:10px">
+        <strong>"日照时段边界"算法</strong>：取所需连续日照小时数 T，按对称布置在正午两侧，取边界时刻 ω=±T/2×15° 计算，取阴影投影最长者。这是规范化简后的常用估算方法，适用于初步方案阶段。精确日照分析需借助 Ecotect / 众智日照等专业软件。
+      </p>
+      <p style="margin-top:10px;color:var(--muted);font-size:12px">
+        本工具仅用于规划方案阶段的快速估算，最终方案应以专业日照分析报告为准。
+      </p>
+    </details>
+
+  </section>
+
+</main>
+
+<footer>
+  © 城市规划日照间距计算器 · <a href="https://www.mohurd.gov.cn/" target="_blank" rel="noopener">参考 GB 50180-2018</a> · 开源于 GitHub
+</footer>
+
+<script>
+// ===================== 城市预设（按纬度排序） =====================
+const CITIES = [
+  {name:"自定义", lat:null},
+  {name:"哈尔滨", lat:45.8},
+  {name:"乌鲁木齐", lat:43.8},
+  {name:"长春", lat:43.9},
+  {name:"沈阳", lat:41.8},
+  {name:"呼和浩特", lat:40.8},
+  {name:"北京", lat:39.9},
+  {name:"天津", lat:39.1},
+  {name:"大连", lat:38.9},
+  {name:"太原", lat:37.9},
+  {name:"济南", lat:36.7},
+  {name:"兰州", lat:36.1},
+  {name:"青岛", lat:36.1},
+  {name:"郑州", lat:34.7},
+  {name:"西安", lat:34.3},
+  {name:"南京", lat:32.1},
+  {name:"合肥", lat:31.8},
+  {name:"上海", lat:31.2},
+  {name:"成都", lat:30.7},
+  {name:"武汉", lat:30.6},
+  {name:"杭州", lat:30.3},
+  {name:"重庆", lat:29.6},
+  {name:"拉萨", lat:29.6},
+  {name:"长沙", lat:28.2},
+  {name:"南昌", lat:28.7},
+  {name:"福州", lat:26.1},
+  {name:"贵阳", lat:26.6},
+  {name:"昆明", lat:25.0},
+  {name:"广州", lat:23.1},
+  {name:"南宁", lat:22.8},
+  {name:"深圳", lat:22.5},
+  {name:"海口", lat:20.0},
+  {name:"三亚", lat:18.3},
+];
+
+// ===================== 日照标准 =====================
+const STANDARDS = {
+  dahan2:   {label:"大寒日 ≥ 2h", hours:2,   delta:-20.0},
+  dahan3:   {label:"大寒日 ≥ 3h", hours:3,   delta:-20.0},
+  dongzhi1: {label:"冬至日 ≥ 1h", hours:1,   delta:-23.45},
+};
+
+// 气候区参考间距系数（简化表，仅供方向性参考）
+const CLIMATE_REF = [
+  {zone:"严寒 I", cities:"哈尔滨、长春", k:"1.80–2.00"},
+  {zone:"寒冷 II", cities:"北京、天津、西安", k:"1.60–1.80"},
+  {zone:"夏热冬冷 III", cities:"上海、武汉、南京", k:"1.20–1.40"},
+  {zone:"夏热冬暖 IV", cities:"广州、深圳、海口", k:"0.80–1.20"},
+];
+
+const state = {
+  std: "dahan2",
+  moment: "boundary",
+};
+
+// ===================== DOM 引用 =====================
+const $ = id => document.getElementById(id);
+const elCity = $("city"), elLat = $("latitude"), elH = $("height"), elH1 = $("windowH"),
+      elOrient = $("orient"), elStdPills = $("standardPills"), elMomentPills = $("momentPills"),
+      elStdHint = $("stdHint"), elStdTable = $("stdTable");
+
+// 填充城市
+CITIES.forEach(c => {
+  const o = document.createElement("option");
+  o.value = c.name;
+  o.textContent = c.lat == null ? c.name : `${c.name} (${c.lat.toFixed(1)}°N)`;
+  elCity.appendChild(o);
+});
+elCity.value = "北京";
+
+// 标准 pills
+function setStd(std){
+  state.std = std;
+  [...elStdPills.children].forEach(p => p.classList.toggle("on", p.dataset.std === std));
+  recalc();
+}
+elStdPills.addEventListener("click", e => {
+  if(e.target.dataset.std) setStd(e.target.dataset.std);
+});
+setStd("dahan2");
+
+// 时刻 pills
+elMomentPills.addEventListener("click", e => {
+  if(e.target.dataset.moment){
+    state.moment = e.target.dataset.moment;
+    [...elMomentPills.children].forEach(p => p.classList.toggle("on", p.dataset.moment === state.moment));
+    recalc();
+  }
+});
+
+// 城市切换 → 同步纬度
+elCity.addEventListener("change", () => {
+  const c = CITIES.find(x => x.name === elCity.value);
+  if(c && c.lat != null){ elLat.value = c.lat; }
+  recalc();
+});
+
+// 纬度手动改 → 设为自定义
+elLat.addEventListener("input", () => {
+  const lat = parseFloat(elLat.value);
+  const match = CITIES.find(c => c.lat != null && Math.abs(c.lat - lat) < 0.05);
+  elCity.value = match ? match.name : "自定义";
+  recalc();
+});
+
+[elH, elH1, elOrient].forEach(el => el.addEventListener("input", recalc));
+
+// ===================== 计算 =====================
+const D2R = Math.PI / 180, R2D = 180 / Math.PI;
+
+function solarPosition(latDeg, deltaDeg, hourAngleDeg){
+  const phi = latDeg * D2R, delta = deltaDeg * D2R, omega = hourAngleDeg * D2R;
+  const sinH = Math.sin(phi)*Math.sin(delta) + Math.cos(phi)*Math.cos(delta)*Math.cos(omega);
+  const h = Math.asin(Math.max(-1, Math.min(1, sinH)));
+  // 方位角（自南起算，西为正）
+  const cosH = Math.cos(h);
+  let sinA = cosH < 1e-6 ? 0 : Math.cos(delta)*Math.sin(omega)/cosH;
+  sinA = Math.max(-1, Math.min(1, sinA));
+  const cosA_num = Math.sin(h)*Math.sin(phi) - Math.sin(delta);
+  const cosA = cosH < 1e-6 ? 1 : cosA_num / (cosH*Math.cos(phi));
+  const A = Math.atan2(sinA, cosA);
+  return {h: h*R2D, A: A*R2D};
+}
+
+function calcSpacing({lat, H, H1, orient, std, moment}){
+  const S = STANDARDS[std];
+  const delta = S.delta;
+  // 时刻：边界 = ±T/2 小时；正午 = 0
+  const omegaDeg = moment === "noon" ? 0 : (S.hours/2) * 15;
+  // 试两个对称时刻，取阴影投影最大的（对偏向建筑有影响）
+  const candidates = [omegaDeg, -omegaDeg];
+  let best = null;
+  for(const w of candidates){
+    const {h, A} = solarPosition(lat, delta, w);
+    if(h <= 0.1){ continue; } // 太阳低于地平线
+    // 阴影投影到"建筑朝向法线方向"
+    const projCos = Math.cos((A - orient) * D2R);
+    const L = (H - H1) * projCos / Math.tan(h * D2R);
+    if(!best || L > best.L) best = {L, h, A, omega:w};
+  }
+  if(!best){
+    return {L:Infinity, h:0, A:0, omega:omegaDeg, K:Infinity, ok:false};
+  }
+  best.K = best.L / H;
+  return best;
+}
+
+// ===================== 渲染 =====================
+function fmt(n, d=2){ return isFinite(n) ? n.toFixed(d) : "—"; }
+
+function recalc(){
+  const lat = parseFloat(elLat.value);
+  const H = parseFloat(elH.value);
+  const H1 = parseFloat(elH1.value);
+  const orient = parseFloat(elOrient.value) || 0;
+  if(!isFinite(lat) || !isFinite(H) || !isFinite(H1) || H1 >= H){
+    $("rL").textContent="--"; $("rK").textContent="--"; $("rH").textContent="--"; $("rA").textContent="--";
+    return;
+  }
+  const r = calcSpacing({lat, H, H1, orient, std:state.std, moment:state.moment});
+  $("rL").textContent = fmt(r.L, 2);
+  $("rK").textContent = fmt(r.K, 3);
+  $("rH").textContent = fmt(r.h, 2);
+  $("rA").textContent = fmt(r.A, 2);
+
+  // 标准提示
+  const stdLabel = STANDARDS[state.std].label;
+  elStdHint.textContent = `当前标准：${stdLabel}。${state.moment === "boundary" ? "按日照时段边界（最不利时刻）计算。" : "按太阳正午（最有利时刻）计算，仅供参考。"}`;
+
+  // 对照表
+  elStdTable.innerHTML = CLIMATE_REF.map(c => {
+    const [lo, hi] = c.k.split("–").map(parseFloat);
+    let cls = "", icon = "";
+    if(r.K <= lo){ cls = "ok"; icon = "✓ 优于"; }
+    else if(r.K <= hi){ cls = "ok"; icon = "✓ 落在区间内"; }
+    else{ cls = "bad"; icon = "✗ 超出"; }
+    return `<tr><td>${c.zone}</td><td>${c.cities}</td><td>${c.k}</td><td class="${cls}">${icon} (${fmt(r.K,3)})</td></tr>`;
+  }).join("");
+
+  drawViz({H, H1, L: r.L, h: r.h, orient, A: r.A});
+}
+
+// ===================== SVG 可视化 =====================
+function drawViz({H, H1, L, h, orient, A}){
+  const svg = $("viz");
+  const W = 800, Hsvg = 360;
+  // 地面线 y
+  const ground = 300;
+  // 比例：把建筑高度映射到画布
+  const maxRealH = Math.max(H, L) * 1.1;
+  const scale = (Hsvg - 60) / Math.max(H * 1.2, L * 0.6);
+  const usableW = W - 120;
+  const lScale = Math.min((usableW - 80) / Math.max(L, 1), scale);
+  const buildH = H * scale;
+  const winH = H1 * scale;
+  const dist = L * lScale;
+
+  const xA = 80;              // 遮挡建筑左侧 x
+  const buildW = 60;
+  const xAr = xA + buildW;    // 遮挡建筑右侧 x
+  const xB = xAr + Math.min(dist, usableW);  // 被遮挡建筑左侧 x
+
+  const topA = ground - buildH;
+  const topB = ground - winH;
+
+  // 太阳位置（左上）
+  const sunX = 50, sunY = 50;
+  // 太阳光线方向（从太阳到建筑 A 顶点）
+  const sunRayX = xA + 5, sunRayY = topA;
+
+  svg.innerHTML = `
+    <!-- 天空背景 -->
+    <defs>
+      <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#fefce8"/>
+        <stop offset="100%" stop-color="#ffffff"/>
+      </linearGradient>
+    </defs>
+    <rect x="0" y="0" width="${W}" height="${ground}" fill="url(#sky)"/>
+    <rect x="0" y="${ground}" width="${W}" height="${Hsvg-ground}" fill="#f3f4f6"/>
+
+    <!-- 太阳 -->
+    <circle cx="${sunX}" cy="${sunY}" r="14" fill="var(--sun)" opacity="0.9"/>
+    <g stroke="var(--sun)" stroke-width="1.5" opacity="0.6">
+      ${[0,45,90,135,180,225,270,315].map(deg=>{
+        const a = deg*Math.PI/180;
+        return `<line x1="${sunX+Math.cos(a)*18}" y1="${sunY+Math.sin(a)*18}" x2="${sunX+Math.cos(a)*24}" y2="${sunY+Math.sin(a)*24}"/>`;
+      }).join("")}
+    </g>
+
+    <!-- 阳光（从太阳到建筑A顶部，再延伸到地面/B 底部） -->
+    <line x1="${sunX}" y1="${sunY}" x2="${sunRayX}" y2="${sunRayY}" stroke="var(--sun)" stroke-width="1.5" stroke-dasharray="4 4"/>
+    <line x1="${sunRayX}" y1="${sunRayY}" x2="${xB}" y2="${topB}" stroke="var(--sun)" stroke-width="1.5" stroke-dasharray="4 4"/>
+
+    <!-- 阴影区域（建筑 A 顶部投影到 B 底部窗口） -->
+    <polygon points="${sunRayX},${sunRayY} ${xB},${topB} ${xB},${ground} ${sunRayX},${ground}"
+             fill="var(--shadow)" opacity="0.35"/>
+
+    <!-- 遮挡建筑 A -->
+    <rect x="${xA}" y="${topA}" width="${buildW}" height="${buildH}" fill="var(--bldg)" stroke="var(--bldg-front)"/>
+    <text x="${xA+buildW/2}" y="${topA-8}" text-anchor="middle" font-size="11" fill="var(--ink)">遮挡建筑 H=${H}m</text>
+
+    <!-- 被遮挡建筑 B（示意） -->
+    <rect x="${xB}" y="${ground - buildH*0.7}" width="${buildW}" height="${buildH*0.7}" fill="#e5e7eb" stroke="var(--bldg-front)"/>
+    <text x="${xB+buildW/2}" y="${ground - buildH*0.7 - 8}" text-anchor="middle" font-size="11" fill="var(--ink)">被遮挡建筑</text>
+
+    <!-- 窗台线 -->
+    <line x1="${xB-5}" y1="${topB}" x2="${xB+buildW+5}" y2="${topB}" stroke="var(--accent)" stroke-width="1.5"/>
+    <text x="${xB+buildW+8}" y="${topB+4}" font-size="11" fill="var(--accent)">窗台 H₁=${H1}m</text>
+
+    <!-- 地面线 -->
+    <line x1="0" y1="${ground}" x2="${W}" y2="${ground}" stroke="#9ca3af" stroke-width="1"/>
+
+    <!-- 间距 L 标注 -->
+    <line x1="${xAr}" y1="${ground+18}" x2="${xB}" y2="${ground+18}" stroke="var(--accent)" stroke-width="1.5" marker-start="url(#arrL)" marker-end="url(#arrR)"/>
+    <text x="${(xAr+xB)/2}" y="${ground+36}" text-anchor="middle" font-size="12" fill="var(--accent)" font-weight="600">L = ${L.toFixed(2)} m</text>
+
+    <!-- 高度角 -->
+    <text x="${sunRayX+10}" y="${sunRayY-6}" font-size="11" fill="var(--sun)" font-weight="600">h = ${h.toFixed(1)}°</text>
+
+    <defs>
+      <marker id="arrL" markerWidth="8" markerHeight="8" refX="0" refY="4" orient="auto">
+        <path d="M8,0 L0,4 L8,8 Z" fill="var(--accent)"/>
+      </marker>
+      <marker id="arrR" markerWidth="8" markerHeight="8" refX="8" refY="4" orient="auto">
+        <path d="M0,0 L8,4 L0,8 Z" fill="var(--accent)"/>
+      </marker>
+    </defs>
+  `;
+}
+
+// 初始计算
+elCity.value = "北京";
+elLat.value = 39.9;
+recalc();
+</script>
+
+</body>
+</html>
