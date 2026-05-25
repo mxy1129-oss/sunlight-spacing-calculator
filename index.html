@@ -299,7 +299,8 @@ function setStd(std){
 elStdPills.addEventListener("click", e => {
   if(e.target.dataset.std) setStd(e.target.dataset.std);
 });
-setStd("dahan2");
+// 仅高亮初始 pill，真正的 recalc 在脚本末尾（避开常量 TDZ）
+[...elStdPills.children].forEach(p => p.classList.toggle("on", p.dataset.std === state.std));
 
 // 时刻 pills
 elMomentPills.addEventListener("click", e => {
